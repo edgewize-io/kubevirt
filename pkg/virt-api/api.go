@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -142,6 +143,8 @@ type virtAPIApp struct {
 	reInitChan chan string
 
 	kubeVirtServiceAccounts map[string]struct{}
+	// Additional service accounts that are allowed to update VMI status
+	additionalServiceAccounts []string
 }
 
 var (
@@ -196,6 +199,16 @@ func (app *virtAPIApp) Execute() {
 	}
 
 	app.kubeVirtServiceAccounts = webhooks.KubeVirtServiceAccounts(app.namespace)
+
+	// Add additional service accounts configured via command line arguments
+	for _, sa := range app.additionalServiceAccounts {
+		// If user doesn't provide full format, automatically add prefix
+		if !strings.HasPrefix(sa, "system:serviceaccount:") {
+			sa = fmt.Sprintf("system:serviceaccount:%s", sa)
+		}
+		app.kubeVirtServiceAccounts[sa] = struct{}{}
+		log.Log.Infof("Added additional service account: %s", sa)
+	}
 
 	app.ConfigureOpenAPIService()
 	app.reInitChan = make(chan string, 10)
@@ -1203,6 +1216,9 @@ func (app *virtAPIApp) AddFlags() {
 		"Private key for the client certificate used to prove the identity of the virt-api when it must call virt-handler during a request")
 	flag.BoolVar(&app.externallyManaged, "externally-managed", false,
 		"Allow intermediate certificates to be used in building up the chain of trust when certificates are externally managed")
+	// Support for configuring additional service accounts
+	flag.StringSliceVar(&app.additionalServiceAccounts, "additional-service-accounts", []string{},
+		"Additional service accounts that are allowed to update VMI status (can be specified multiple times)")
 }
 
 // GetGsInfo returns the libguestfs-tools image information based on the KubeVirt installation in the namespace.

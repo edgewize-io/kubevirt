@@ -21,6 +21,7 @@ package virt_api
 
 import (
 	"errors"
+	"flag"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -222,6 +223,26 @@ var _ = Describe("Virt-api", func() {
 			app.AddFlags()
 			Expect(app.SwaggerUI).To(Equal("third_party/swagger-ui"))
 			Expect(app.SubresourcesOnly).To(BeFalse())
+			Expect(app.consoleServerPort).To(Equal(DefaultConsoleServerPort))
+			Expect(app.caConfigMapName).To(Equal(defaultCAConfigMapName))
+			Expect(app.tlsCertFilePath).To(Equal(defaultTlsCertFilePath))
+			Expect(app.tlsKeyFilePath).To(Equal(defaultTlsKeyFilePath))
+			Expect(app.handlerCertFilePath).To(Equal(defaultHandlerCertFilePath))
+			Expect(app.handlerKeyFilePath).To(Equal(defaultHandlerKeyFilePath))
+			Expect(app.externallyManaged).To(BeFalse())
+			Expect(app.additionalServiceAccounts).To(BeEmpty())
+		})
+
+		It("should support additional service accounts flag", func() {
+			app.AddFlags()
+
+			// Mock command line arguments
+			os.Args = []string{"virt-api", "--additional-service-accounts=myapp:myuser", "--additional-service-accounts=system:serviceaccount:otherns:otheruser"}
+
+			// Re-parse flags
+			flag.Parse()
+
+			Expect(app.additionalServiceAccounts).To(ContainElements("myapp:myuser", "system:serviceaccount:otherns:otheruser"))
 		})
 
 	})
